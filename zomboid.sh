@@ -31,6 +31,7 @@ SERVER_DISPLAY_NAME="Project Zomboid"
 PLAYER_LIMIT=8
 PUBLIC_SERVER=false
 CLOUDFLARE_PROXIED=false
+TWICE_DAILY_RESTARTS=false
 PREFLIGHT_ONLY=false
 ASSUME_YES=false
 NON_INTERACTIVE=false
@@ -39,6 +40,7 @@ SERVER_NAME_SET=false
 PLAYER_LIMIT_SET=false
 PUBLIC_SERVER_SET=false
 CLOUDFLARE_SET=false
+TWICE_DAILY_RESTARTS_SET=false
 WORK_DIR=""
 ADMIN_HELPER=""
 DNS_IPV4=""
@@ -77,6 +79,7 @@ Options:
   --players NUMBER        Initial player limit, 1-10 (default: 8)
   --public-server         Set Public=true instead of the private default
   --cloudflare-proxied    DNS is proxied by Cloudflare; requires Full (strict)
+  --twice-daily-restarts  Restart at 00:00 and 12:00 with player warnings
   --preflight-only        Validate the host and DNS, then exit without changes
   --non-interactive       Do not prompt; all required inputs must be supplied
   --yes                   Skip the interactive INSTALL confirmation
@@ -86,6 +89,7 @@ Safe baseline:
   - 5,120 MiB game memory, 4 GiB Java heap, no container swap
   - 350% CPU, 30 GB game disk, private, no Workshop mods by default
   - daily 04:00 save-data backup with a seven-backup limit
+  - optional warned restarts at 00:00 and 12:00 Panel time
   - manual game updates through AUTO_UPDATE
   - UFW, HTTPS, loopback-only database services, bounded logs
 
@@ -249,6 +253,11 @@ while (($# > 0)); do
             CLOUDFLARE_SET=true
             shift
             ;;
+        --twice-daily-restarts)
+            TWICE_DAILY_RESTARTS=true
+            TWICE_DAILY_RESTARTS_SET=true
+            shift
+            ;;
         --preflight-only)
             PREFLIGHT_ONLY=true
             shift
@@ -290,6 +299,7 @@ if [[ ${NON_INTERACTIVE} == false ]]; then
     [[ ${PLAYER_LIMIT_SET} == true ]] || prompt_value PLAYER_LIMIT 'Maximum players (1-10)' "${PLAYER_LIMIT}"
     [[ ${PUBLIC_SERVER_SET} == true ]] || prompt_boolean PUBLIC_SERVER 'List this Project Zomboid server publicly?' false
     [[ ${CLOUDFLARE_SET} == true ]] || prompt_boolean CLOUDFLARE_PROXIED 'Is the domain orange-cloud proxied by Cloudflare?' false
+    [[ ${TWICE_DAILY_RESTARTS_SET} == true ]] || prompt_boolean TWICE_DAILY_RESTARTS 'Enable warned restarts at 00:00 and 12:00 Panel time?' false
 fi
 
 [[ -n ${PANEL_DOMAIN} && -n ${LE_EMAIL} && -n ${PUBLIC_IP} ]] || fail 'Domain, email, and public IPv4 are required.'
@@ -404,6 +414,7 @@ printf '  Panel:       https://%s\n' "${PANEL_DOMAIN}"
 printf '  Public IPv4: %s\n' "${PUBLIC_IP}"
 printf '  Admin:       %s <%s>\n' "${PANEL_USERNAME}" "${LE_EMAIL}"
 printf '  Game server: %s (%s players, public=%s)\n' "${SERVER_DISPLAY_NAME}" "${PLAYER_LIMIT}" "${PUBLIC_SERVER}"
+printf '  Restarts:    twice daily=%s (00:00 and 12:00 %s)\n' "${TWICE_DAILY_RESTARTS}" "${TIMEZONE}"
 printf '  Versions:    Panel %s, Wings %s\n\n' "${PANEL_VERSION}" "${WINGS_VERSION}"
 
 if [[ ${ASSUME_YES} == false ]]; then
@@ -1023,6 +1034,10 @@ $eggFile = requiredEnv('INSTALL_EGG_FILE');
 $stateFile = requiredEnv('INSTALL_STATE_FILE');
 $credentialFile = requiredEnv('INSTALL_PZ_CREDENTIAL_FILE');
 $runtimeImage = requiredEnv('INSTALL_RUNTIME_IMAGE');
+$twiceDailyRestarts = requiredEnv('INSTALL_TWICE_DAILY_RESTARTS');
+if (!in_array($twiceDailyRestarts, ['true', 'false'], true)) {
+    throw new RuntimeException('INSTALL_TWICE_DAILY_RESTARTS must be true or false.');
+}
 
 $eggData = json_decode(file_get_contents($eggFile), true, 512, JSON_THROW_ON_ERROR);
 if (($eggData['name'] ?? null) !== 'Project Zomboid') {
@@ -1144,6 +1159,41 @@ Task::query()->forceCreate([
     'continue_on_failure' => false,
 ]);
 
+if ($twiceDailyRestarts === 'true') {
+    $restartSchedule = Schedule::query()->forceCreate([
+        'server_id' => $server->id,
+        'name' => 'Twice-daily warned restart',
+        'cron_day_of_week' => '*',
+        'cron_month' => '*',
+        'cron_day_of_month' => '*',
+        'cron_hour' => '11,23',
+        'cron_minute' => '50',
+        'is_active' => true,
+        'is_processing' => false,
+        'only_when_online' => true,
+        'next_run_at' => Utilities::getScheduleNextRunDate('50', '11,23', '*', '*', '*'),
+    ]);
+
+    $restartTasks = [
+        [Task::ACTION_COMMAND, 'servermsg "Server restart in 10 minutes."', 0],
+        [Task::ACTION_COMMAND, 'servermsg "Server restart in 5 minutes."', 300],
+        [Task::ACTION_COMMAND, 'servermsg "Server restart in 1 minute. Please reach a safe place."', 240],
+        [Task::ACTION_COMMAND, 'save', 0],
+        [Task::ACTION_POWER, 'restart', 60],
+    ];
+    foreach ($restartTasks as $index => [$action, $payload, $offset]) {
+        Task::query()->forceCreate([
+            'schedule_id' => $restartSchedule->id,
+            'sequence_id' => $index + 1,
+            'action' => $action,
+            'payload' => $payload,
+            'time_offset' => $offset,
+            'is_queued' => false,
+            'continue_on_failure' => false,
+        ]);
+    }
+}
+
 file_put_contents($stateFile, $server->uuid . PHP_EOL, LOCK_EX);
 chmod($stateFile, 0600);
 file_put_contents($credentialFile, implode(PHP_EOL, [
@@ -1251,6 +1301,7 @@ INSTALL_EGG_FILE="${WORK_DIR}/egg-project-zomboid.json" \
 INSTALL_STATE_FILE="${WORK_DIR}/server.uuid" \
 INSTALL_PZ_CREDENTIAL_FILE="${PZ_CREDENTIAL_FILE}" \
 INSTALL_RUNTIME_IMAGE="${STEAMCMD_IMAGE}" \
+INSTALL_TWICE_DAILY_RESTARTS="${TWICE_DAILY_RESTARTS}" \
 php "${WORK_DIR}/provision-project-zomboid.php"
 
 SERVER_UUID=$(tr -d '\r\n' <"${WORK_DIR}/server.uuid")

@@ -118,6 +118,7 @@ The script prompts for:
 - Player limit
 - Public or private server listing
 - Whether Cloudflare proxying is enabled
+- Whether to enable warned restarts at 00:00 and 12:00 Panel time
 
 If preflight passes, run the installation and review the final summary before
 typing `INSTALL`:
@@ -145,6 +146,7 @@ sudo ./zomboid.sh \
   --timezone UTC \
   --server-name "Project Zomboid" \
   --players 8 \
+  --twice-daily-restarts \
   --non-interactive \
   --preflight-only
 ```
@@ -153,6 +155,9 @@ Remove `--preflight-only` only after reviewing the checks. Add `--yes` to skip
 the final `INSTALL` confirmation. Add `--public-server` only when public server
 listing is intentional. Add `--cloudflare-proxied` only for an orange-cloud DNS
 record configured as described above.
+
+`--twice-daily-restarts` is optional. Omit it to leave automatic restarts
+disabled in non-interactive mode.
 
 Use `./zomboid.sh --help` for the complete option list.
 
@@ -235,6 +240,13 @@ game binaries and logs. The installer creates and validates an initial backup.
 Backups remain on the same VPS under `/var/lib/pterodactyl/backups`; download
 important backups or copy them to independently managed offsite storage.
 
+If enabled during installation, a separate Pterodactyl schedule restarts the
+server at 00:00 and 12:00 in the configured Panel timezone. It starts at 11:50
+and 23:50, warns connected players at 10, 5, and 1 minute, sends `save`, waits
+60 seconds, and then uses Pterodactyl's restart power action. The schedule runs
+only while the server is online. It does not use cron or a separate systemd
+timer, and it does not change the daily 04:00 backup schedule.
+
 Automatic game updates are disabled. To update safely:
 
 1. Warn players and create a verified manual backup.
@@ -255,7 +267,7 @@ In the Pterodactyl server page:
 - **Files** edits `.cache/Server/ProjectZomboid.ini`.
 - **Files** edits `.cache/Server/ProjectZomboid_SandboxVars.lua`.
 - **Backups** creates, locks, restores, downloads, and deletes backups.
-- **Schedules** manages the daily backup schedule.
+- **Schedules** manages the daily backup and optional twice-daily restart schedules.
 - **Startup** controls the manual update toggle and server variables.
 
 Before adding or removing Workshop mods, create and verify a manual backup,
@@ -290,7 +302,8 @@ and pull requests.
 - No migration, in-place upgrade, uninstall, or rollback automation.
 - No SMTP setup; Panel mail uses its log driver initially.
 - No Workshop mods or custom maps are installed automatically.
-- No automatic daily game restart is configured.
+- Twice-daily game restarts are opt-in through `--twice-daily-restarts` or the
+  corresponding interactive prompt.
 - No offsite backup destination is configured.
 - Final operation still requires an administrator who can maintain Linux,
   Pterodactyl, Docker, DNS, TLS, backups, and game compatibility.

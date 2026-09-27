@@ -3,7 +3,7 @@ FROM ubuntu:24.04
 ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update \
-    && apt-get install --yes --no-install-recommends bash ca-certificates grep shellcheck \
+    && apt-get install --yes --no-install-recommends bash ca-certificates grep php-cli shellcheck \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /workspace

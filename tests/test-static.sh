@@ -13,11 +13,42 @@ fail() {
 printf '%s\n' 'Checking Bash syntax.'
 bash -n "${installer}"
 
+if command -v php >/dev/null 2>&1; then
+    printf '%s\n' 'Checking embedded PHP syntax.'
+    php_check_dir=$(mktemp -d)
+    trap 'rm -rf -- "${php_check_dir}"' EXIT
+    awk -v output_dir="${php_check_dir}" '
+        /^cat .*<<'\''PHP'\''$/ {
+            in_php = 1
+            count++
+            output = sprintf("%s/helper-%d.php", output_dir, count)
+            next
+        }
+        in_php && $0 == "PHP" {
+            close(output)
+            in_php = 0
+            next
+        }
+        in_php { print > output }
+    ' "${installer}"
+    php_file_count=$(find "${php_check_dir}" -type f -name 'helper-*.php' | wc -l)
+    [[ ${php_file_count} -eq 3 ]] || fail 'Expected three embedded PHP helpers.'
+    while IFS= read -r php_file; do
+        php -l "${php_file}" >/dev/null
+    done < <(find "${php_check_dir}" -type f -name 'helper-*.php' -print | sort)
+else
+    printf '%s\n' 'PHP is unavailable; container/CI validation will check embedded helpers.'
+fi
+
 printf '%s\n' 'Checking the non-mutating help path.'
 help_output=$(bash "${installer}" --help)
 grep -Fq 'sudo ./zomboid.sh' <<<"${help_output}" || fail 'Help is missing the invocation example.'
 grep -Fq -- '--preflight-only' <<<"${help_output}" || fail 'Help is missing preflight-only mode.'
 grep -Fq -- '--non-interactive' <<<"${help_output}" || fail 'Help is missing non-interactive mode.'
+grep -Fq -- '--twice-daily-restarts' <<<"${help_output}" || fail 'Help is missing the optional restart flag.'
+grep -Fq 'TWICE_DAILY_RESTARTS=false' "${installer}" || fail 'Automatic restarts are not disabled by default.'
+grep -Fq 'INSTALL_TWICE_DAILY_RESTARTS="${TWICE_DAILY_RESTARTS}"' "${installer}" \
+    || fail 'Restart preference is not passed to Pterodactyl provisioning.'
 
 printf '%s\n' 'Checking required safety controls.'
 grep -Fq 'Type INSTALL to continue' "${installer}" || fail 'Final confirmation gate is missing.'
@@ -28,6 +59,24 @@ grep -Fq 'PTERODACTYL-FILTER' "${installer}" || fail 'Docker ingress filter is m
 grep -Fq 'ufw default deny incoming' "${installer}" || fail 'UFW default-deny policy is missing.'
 grep -Fq 'certbot renew --dry-run' "${installer}" || fail 'Certificate-renewal test is missing.'
 grep -Fq 'No reboot was performed' "${installer}" || fail 'No-reboot completion statement is missing.'
+
+printf '%s\n' 'Checking optional Pterodactyl restart scheduling.'
+grep -Fq "prompt_boolean TWICE_DAILY_RESTARTS 'Enable warned restarts at 00:00 and 12:00 Panel time?' false" "${installer}" \
+    || fail 'Interactive restart-schedule prompt is missing or not opt-in.'
+grep -Fq "'name' => 'Twice-daily warned restart'" "${installer}" || fail 'Restart schedule is missing.'
+grep -Fq "'cron_hour' => '11,23'" "${installer}" || fail 'Restart schedule does not cover both target times.'
+grep -Fq "'cron_minute' => '50'" "${installer}" || fail 'Restart warning schedule does not start ten minutes early.'
+grep -Fq "[Task::ACTION_COMMAND, 'servermsg \"Server restart in 10 minutes.\"', 0]" "${installer}" \
+    || fail 'Ten-minute warning task is missing.'
+grep -Fq "[Task::ACTION_COMMAND, 'servermsg \"Server restart in 5 minutes.\"', 300]" "${installer}" \
+    || fail 'Five-minute warning task is missing.'
+grep -Fq "[Task::ACTION_COMMAND, 'servermsg \"Server restart in 1 minute. Please reach a safe place.\"', 240]" "${installer}" \
+    || fail 'One-minute warning task is missing.'
+grep -Fq "[Task::ACTION_COMMAND, 'save', 0]" "${installer}" || fail 'Pre-restart save task is missing.'
+grep -Fq "[Task::ACTION_POWER, 'restart', 60]" "${installer}" || fail 'Restart power task is missing or mistimed.'
+grep -Fq "'only_when_online' => true" "${installer}" || fail 'Restart schedule must skip offline servers.'
+grep -Fq "'name' => 'Daily save-data backup'" "${installer}" || fail 'Daily backup schedule is missing.'
+grep -Fq "'cron_hour' => '4'" "${installer}" || fail 'Daily backup schedule is no longer at 04:00.'
 
 printf '%s\n' 'Checking secret-handling invariants.'
 if grep -Eq -- '--password=' "${installer}"; then
