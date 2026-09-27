@@ -1,0 +1,10 @@
+.git
+.github
+*.log
+*.env
+*.key
+*.pem
+*.p12
+*.pfx
+*credentials*
+*secret*

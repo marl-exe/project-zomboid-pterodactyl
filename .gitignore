@@ -1,0 +1,13 @@
+*.log
+*.env
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+*.p12
+*.pfx
+*credentials*
+*secret*
+*.swp
+.DS_Store

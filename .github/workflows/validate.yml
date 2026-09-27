@@ -1,0 +1,24 @@
+name: Validate installer
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  container-checks:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+
+      - name: Build validation container
+        run: docker build --file tests/Dockerfile --tag pz-installer-test .
+
+      - name: Run validation container
+        run: docker run --rm pz-installer-test
