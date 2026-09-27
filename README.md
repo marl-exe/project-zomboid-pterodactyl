@@ -6,7 +6,7 @@
 >
 > DediRock Promo VPS - Los Angeles: https://billing.dedirock.com/aff.php?aff=898&pid=265
 >
-> **For this set-up, recommended is 4vCPU and 5GB RAM $45/year VPS**
+> For this set-up, recommended is **4vCPU and 8GB RAM $45/year VPS**
 >
 > GreenCloudVPS: https://greencloudvps.com/billing/aff.php?aff=10195&gid=68
 >
