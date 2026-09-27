@@ -933,9 +933,9 @@ systemctl daemon-reload
 systemctl enable --now wings
 
 wait_for_wings_api() {
-    local attempt
+    local _attempt
     local status
-    for attempt in $(seq 1 30); do
+    for _attempt in $(seq 1 30); do
         status=$(curl --silent --show-error \
             --resolve "${PANEL_DOMAIN}:8443:127.0.0.1" \
             --output /dev/null \
@@ -1255,8 +1255,8 @@ CONSOLE_LOG="${SERVER_ROOT}/.cache/server-console.txt"
 
 wait_for_installation() {
     local state
-    local attempt
-    for attempt in $(seq 1 180); do
+    local _attempt
+    for _attempt in $(seq 1 180); do
         state=$(php "${WORK_DIR}/server-ops.php" "${SERVER_UUID}" installation)
         case "${state}" in
             installed) return 0 ;;
@@ -1271,8 +1271,8 @@ wait_for_daemon_state() {
     local expected=$1
     local attempts=$2
     local state
-    local attempt
-    for attempt in $(seq 1 "${attempts}"); do
+    local _attempt
+    for _attempt in $(seq 1 "${attempts}"); do
         state=$(php "${WORK_DIR}/server-ops.php" "${SERVER_UUID}" state 2>/dev/null || true)
         [[ ${state} == "${expected}" ]] && return 0
         sleep 5
@@ -1283,8 +1283,8 @@ wait_for_daemon_state() {
 wait_for_start_marker() {
     local previous_count=$1
     local current_count
-    local attempt
-    for attempt in $(seq 1 240); do
+    local _attempt
+    for _attempt in $(seq 1 240); do
         current_count=0
         if [[ -f ${CONSOLE_LOG} ]]; then
             current_count=$(grep -c 'SERVER STARTED' "${CONSOLE_LOG}" || true)
