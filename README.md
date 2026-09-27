@@ -298,3 +298,15 @@ and pull requests.
 Before changing pinned versions, review upstream release notes, update the
 corresponding SHA-256 digest, run all repository checks, and test on a disposable
 VPS.
+
+---
+
+## Need a VPS?
+
+> DediRock Promo VPS - New York: https://billing.dedirock.com/aff.php?aff=898&pid=264
+>
+> DediRock Promo VPS - Los Angeles: https://billing.dedirock.com/aff.php?aff=898&pid=265
+>
+> GreenCloudVPS: https://greencloudvps.com/billing/aff.php?aff=10195&gid=68
+
+These are referral/affiliate links, which may provide me with a referral benefit if you sign up through them. Pricing and stock can change.
