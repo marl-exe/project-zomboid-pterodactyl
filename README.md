@@ -1,5 +1,17 @@
 # Project Zomboid on Pterodactyl
 
+> **Looking for a $10.88/year VPS?** Use my referral links:
+>
+> DediRock Promo VPS - New York: https://billing.dedirock.com/aff.php?aff=898&pid=264
+>
+> DediRock Promo VPS - Los Angeles: https://billing.dedirock.com/aff.php?aff=898&pid=265
+>
+> **For this set-up, recommended 4vCPU and 5GB RAM $45/year VPS?**
+>
+> GreenCloudVPS: https://greencloudvps.com/billing/aff.php?aff=10195&gid=68
+>
+> These are referral/affiliate links, which may provide me with a referral benefit if you sign up through them. Pricing and stock can change.
+
 `zomboid.sh` installs a small, production-oriented Pterodactyl deployment and
 one Project Zomboid dedicated server on a **fresh Ubuntu 24.04 amd64 VPS**.
 It installs the Panel, Wings, Docker CE, NGINX, MariaDB, Redis, HTTPS, firewall
