@@ -1,6 +1,6 @@
 # Project Zomboid on Pterodactyl
 
-> **Looking for a $10.88/year VPS?** Use my referral links:
+> **Looking for a $10.88/year VPS?**
 >
 > DediRock Promo VPS - New York: https://billing.dedirock.com/aff.php?aff=898&pid=264
 >
