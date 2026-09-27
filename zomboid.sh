@@ -900,6 +900,9 @@ if ! grep -Eq "^[[:space:]]*127\.0\.0\.1[[:space:]]+.*(^|[[:space:]])${PANEL_DOM
     printf '127.0.0.1 %s\n' "${PANEL_DOMAIN}" >>/etc/hosts
 fi
 
+# The root shell intentionally owns the mode-0600 redirect target; only the
+# configuration-generating PHP process runs as www-data.
+# shellcheck disable=SC2024
 sudo -u www-data php artisan p:node:configuration "${node_id}" --format=yaml >"${WORK_DIR}/wings-config.yml"
 install -m 0600 "${WORK_DIR}/wings-config.yml" "${WINGS_ROOT}/config.yml"
 
@@ -1366,7 +1369,7 @@ php "${WORK_DIR}/server-ops.php" "${SERVER_UUID}" save >/dev/null
 sleep 30
 BACKUP_UUID=$(php "${WORK_DIR}/server-ops.php" "${SERVER_UUID}" backup)
 [[ ${BACKUP_UUID} =~ ^[0-9a-f-]{36}$ ]] || fail 'Backup request returned an invalid UUID.'
-for attempt in $(seq 1 60); do
+for _attempt in $(seq 1 60); do
     backup_state=$(php "${WORK_DIR}/server-ops.php" "${SERVER_UUID}" backup-status "${BACKUP_UUID}")
     case "${backup_state}" in
         successful) break ;;
