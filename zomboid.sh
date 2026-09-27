@@ -328,9 +328,16 @@ for path in \
     [[ ! -e ${path} ]] || fail "Refusing to overwrite existing deployment data: ${path}"
 done
 
-for command_name in ss getent awk grep sort paste ip df nproc sha256sum systemd-detect-virt dpkg-query /usr/sbin/sshd; do
+for command_name in ss getent awk grep sort paste ip df nproc sha256sum systemctl systemd-detect-virt dpkg-query /usr/sbin/sshd; do
     command -v "${command_name}" >/dev/null || fail "Required preflight command is missing: ${command_name}"
 done
+
+existing_failed_units=$(systemctl --failed --no-legend --plain)
+if [[ -n ${existing_failed_units} ]]; then
+    printf '%s\n' 'Existing failed systemd units:' >&2
+    printf '%s\n' "${existing_failed_units}" >&2
+    fail 'Resolve existing failed units before installing.'
+fi
 
 virtualization=$(systemd-detect-virt 2>/dev/null || true)
 case "${virtualization}" in
