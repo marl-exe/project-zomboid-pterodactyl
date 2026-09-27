@@ -66,12 +66,14 @@ grep -Fq "prompt_boolean TWICE_DAILY_RESTARTS 'Enable warned restarts at 00:00 a
 grep -Fq "'name' => 'Twice-daily warned restart'" "${installer}" || fail 'Restart schedule is missing.'
 grep -Fq "'cron_hour' => '11,23'" "${installer}" || fail 'Restart schedule does not cover both target times.'
 grep -Fq "'cron_minute' => '50'" "${installer}" || fail 'Restart warning schedule does not start ten minutes early.'
-grep -Fq "[Task::ACTION_COMMAND, 'servermsg \"Server restart in 10 minutes.\"', 0]" "${installer}" \
-    || fail 'Ten-minute warning task is missing.'
-grep -Fq "[Task::ACTION_COMMAND, 'servermsg \"Server restart in 5 minutes.\"', 300]" "${installer}" \
-    || fail 'Five-minute warning task is missing.'
-grep -Fq "[Task::ACTION_COMMAND, 'servermsg \"Server restart in 1 minute. Please reach a safe place.\"', 240]" "${installer}" \
-    || fail 'One-minute warning task is missing.'
+expected_restart_warnings=$(cat <<'EOF'
+        [Task::ACTION_COMMAND, 'servermsg "Server restart in 10 minutes."', 0],
+        [Task::ACTION_COMMAND, 'servermsg "Server restart in 5 minutes."', 300],
+        [Task::ACTION_COMMAND, 'servermsg "Server restart in 1 minute. Please reach a safe place."', 240],
+EOF
+)
+grep -Fq "${expected_restart_warnings}" "${installer}" \
+    || fail 'Restart warning payloads must contain unescaped double quotes and the reviewed timing.'
 grep -Fq "[Task::ACTION_COMMAND, 'save', 0]" "${installer}" || fail 'Pre-restart save task is missing.'
 grep -Fq "[Task::ACTION_POWER, 'restart', 60]" "${installer}" || fail 'Restart power task is missing or mistimed.'
 grep -Fq "'only_when_online' => true" "${installer}" || fail 'Restart schedule must skip offline servers.'
