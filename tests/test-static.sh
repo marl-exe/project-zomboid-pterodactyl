@@ -46,6 +46,36 @@ grep -Fq 'sudo ./zomboid.sh' <<<"${help_output}" || fail 'Help is missing the in
 grep -Fq -- '--preflight-only' <<<"${help_output}" || fail 'Help is missing preflight-only mode.'
 grep -Fq -- '--non-interactive' <<<"${help_output}" || fail 'Help is missing non-interactive mode.'
 grep -Fq -- '--twice-daily-restarts' <<<"${help_output}" || fail 'Help is missing the optional restart flag.'
+if bash "${installer}" --invalid-option >/dev/null 2>&1; then
+    fail 'Unknown installer options must be rejected.'
+fi
+if (( EUID == 0 )); then
+    printf '%s\n' 'Checking fail-closed CLI input validation without running preflight.'
+    expect_input_failure() {
+        local expected_error=$1
+        shift
+        local output
+        if output=$(bash "${installer}" \
+            --domain panel.example.com \
+            --email admin@example.com \
+            --public-ip 203.0.113.10 \
+            --username admin \
+            --first-name Admin \
+            --last-name User \
+            --non-interactive --preflight-only "$@" 2>&1); then
+            fail "Invalid installer input was accepted: ${expected_error}"
+        fi
+        grep -Fq "${expected_error}" <<<"${output}" \
+            || fail "Expected input validation error was not reported: ${expected_error}"
+    }
+    expect_input_failure 'Invalid fully qualified domain name.' --domain invalid
+    expect_input_failure 'Invalid email address.' --email invalid
+    expect_input_failure 'Invalid public IPv4 address.' --public-ip invalid
+    expect_input_failure 'Player limit must be between 1 and 10.' --players 11
+    expect_input_failure 'Invalid timezone name.' --timezone ../bad
+else
+    printf '%s\n' 'Skipping root-only negative CLI cases; the CI container runs them as root.'
+fi
 grep -Fq 'TWICE_DAILY_RESTARTS=false' "${installer}" || fail 'Automatic restarts are not disabled by default.'
 grep -Fq 'INSTALL_TWICE_DAILY_RESTARTS="${TWICE_DAILY_RESTARTS}"' "${installer}" \
     || fail 'Restart preference is not passed to Pterodactyl provisioning.'
@@ -99,6 +129,24 @@ digest_count=$(grep -Ec '^readonly (PANEL|WINGS|EGG)_SHA256="[0-9a-f]{64}"$' "${
 [[ ${digest_count} -eq 3 ]] || fail 'Expected three pinned 64-character SHA-256 digests.'
 image_digest_count=$(grep -Ec '^readonly (STEAMCMD|INSTALLER)_IMAGE="[^"[:space:]]+@sha256:[0-9a-f]{64}"$' "${installer}")
 [[ ${image_digest_count} -eq 2 ]] || fail 'Expected two container images pinned by SHA-256 manifest digest.'
+grep -Fq 'readonly PANEL_VERSION_DEFAULT="v1.15.2"' "${installer}" || fail 'The reviewed Panel security release is not pinned.'
+grep -Fq 'readonly PANEL_SHA256="572aacdf896e2dbce3df4c42f055e77a1e419598b224b7d6ebf3bf41462af8cf"' "${installer}" \
+    || fail 'The reviewed Panel release SHA-256 has changed.'
+grep -Fq 'readonly WINGS_VERSION_DEFAULT="v1.13.5"' "${installer}" || fail 'The reviewed Wings release is not pinned.'
+grep -Fq 'readonly WINGS_SHA256="231134aa6d5aa02aac4f6384b50c76860637858cbc056268b9f96ac42f7f5393"' "${installer}" \
+    || fail 'The reviewed Wings release SHA-256 has changed.'
+grep -Fq 'readonly PHP83_SECURITY_MINIMUM="8.3.6-0ubuntu0.24.04.13"' "${installer}" \
+    || fail 'The Ubuntu 24.04 security baseline is missing.'
+grep -Fq 'dpkg --compare-versions "${installed_php_version}" ge "${PHP83_SECURITY_MINIMUM}"' "${installer}" \
+    || fail 'The installed PHP versions are not compared against the security baseline.'
+grep -Fq 'session.upload_progress.enabled = Off' "${installer}" \
+    || fail 'The PHP-FPM session upload progress mitigation is missing.'
+grep -Fq '/etc/php/8.3/fpm/conf.d/99-pterodactyl-security.ini' "${installer}" \
+    || fail 'The PHP-FPM security setting is not installed.'
+dpkg --compare-versions '8.3.6-0ubuntu0.24.04.12' lt '8.3.6-0ubuntu0.24.04.13' \
+    || fail 'The Ubuntu PHP security floor comparison is invalid.'
+dpkg --compare-versions '8.3.6-0ubuntu0.24.04.13' ge '8.3.6-0ubuntu0.24.04.13' \
+    || fail 'The patched Ubuntu PHP version was incorrectly rejected.'
 grep -Fq "'PzA7' . bin2hex(random_bytes(13))" "${installer}" \
     || fail 'Project Zomboid generated password is not the reviewed 30-character form.'
 

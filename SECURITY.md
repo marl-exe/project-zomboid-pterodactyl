@@ -19,6 +19,10 @@ download directly into a shell.
 Release downloads are pinned to specific upstream versions and SHA-256 digests.
 The Project Zomboid egg is pinned to a reviewed Git commit and digest. Package
 installation still trusts Ubuntu's and Docker's configured APT repositories.
+The installer requires Ubuntu 24.04 PHP CLI and FPM packages containing the
+php2shell fixes for CVE-2026-109618 and CVE-2026-109619. It also disables
+session upload progress in the Panel's PHP-FPM configuration as a defense in
+depth. Keep all Ubuntu packages updated after installation.
 
 Generated credentials exist only on the target VPS in mode-0600 files. They are
 not accepted as command-line arguments. Remove the initial credential files
