@@ -273,6 +273,15 @@ In the Pterodactyl server page:
 Before adding or removing Workshop mods, create and verify a manual backup,
 stop the server, and follow each mod's compatibility and removal guidance.
 
+## Operator guides
+
+- [Day-to-day operations and Workshop troubleshooting](docs/OPERATIONS.md)
+- [Back up and restore a modded world on a new server](docs/BACKUP-RESTORE.md)
+- [Safely uninstall or decommission a deployment](docs/UNINSTALL.md)
+
+These guides describe **manual** operator procedures. They do not turn the
+fresh-host installer into a migration, upgrade, or uninstall tool.
+
 ## Validation
 
 Run the local checks without installing host packages:
