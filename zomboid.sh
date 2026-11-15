@@ -2,14 +2,15 @@
 
 set -Eeuo pipefail
 
-readonly PANEL_VERSION_DEFAULT="v1.15.1"
-readonly WINGS_VERSION_DEFAULT="v1.13.3"
+readonly PANEL_VERSION_DEFAULT="v1.15.2"
+readonly WINGS_VERSION_DEFAULT="v1.13.5"
 readonly EGG_COMMIT_DEFAULT="c637a6d1e0449b167efeff81bb9a0177aa3df6c2"
-readonly PANEL_SHA256="62c88c035b3e0f3c3ddd06bc3ef12249d087af0e765f49878b6327a066ed860b"
-readonly WINGS_SHA256="010d894a895fe4f914e3f1c1e75fb2fda4ebe50cc249e7e456887ea5b422c8fa"
+readonly PANEL_SHA256="572aacdf896e2dbce3df4c42f055e77a1e419598b224b7d6ebf3bf41462af8cf"
+readonly WINGS_SHA256="231134aa6d5aa02aac4f6384b50c76860637858cbc056268b9f96ac42f7f5393"
 readonly EGG_SHA256="0326e0d0411b7039bf326fb1438fa29687163af0c2ccb37b7e62adacd677fb45"
 readonly STEAMCMD_IMAGE="ghcr.io/ptero-eggs/steamcmd:debian@sha256:c8a93dc0e256d1dba10aed6a0d8d6e739d4f1809f4e3b7428d0c01adc6e6e68b"
 readonly INSTALLER_IMAGE="ghcr.io/ptero-eggs/installers:debian@sha256:084e7a28d9902d054b35bcad7c547bcd3b5739040b9e0f5bfe63bb18ce021423"
+readonly PHP83_SECURITY_MINIMUM="8.3.6-0ubuntu0.24.04.13"
 readonly PANEL_ROOT="/var/www/pterodactyl"
 readonly WINGS_ROOT="/etc/pterodactyl"
 readonly WINGS_DATA="/var/lib/pterodactyl"
@@ -459,6 +460,21 @@ apt-get install -y \
     unattended-upgrades \
     unzip
 
+log 'Checking Ubuntu PHP security updates for CVE-2026-109618 and CVE-2026-109619.'
+for php_package in php8.3-cli php8.3-fpm; do
+    installed_php_version=$(dpkg-query -W -f='${Version}' "${php_package}")
+    dpkg --compare-versions "${installed_php_version}" ge "${PHP83_SECURITY_MINIMUM}" \
+        || fail "${php_package} ${installed_php_version} is older than the Ubuntu 24.04 security fix ${PHP83_SECURITY_MINIMUM}. Update the package source before proceeding."
+done
+
+# Match the upstream Panel's defense in depth without changing the CLI SAPI.
+cat >"${WORK_DIR}/pterodactyl-php-security.ini" <<'EOF'
+; Disable PHP session upload progress in the Panel's web-serving FPM SAPI.
+session.upload_progress.enabled = Off
+EOF
+install -m 0644 "${WORK_DIR}/pterodactyl-php-security.ini" /etc/php/8.3/fpm/conf.d/99-pterodactyl-security.ini
+/usr/sbin/php-fpm8.3 -t
+
 log 'Configuring Docker from the official stable repository.'
 install -d -m 0755 /etc/apt/keyrings
 curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
@@ -539,6 +555,10 @@ EOF
 
 systemctl daemon-reload
 systemctl enable --now docker mariadb redis-server php8.3-fpm cron
+# APT may already have started PHP-FPM before the security ini was installed.
+# Enabling an active unit does not reload its PHP configuration.
+systemctl restart php8.3-fpm
+systemctl is-active --quiet php8.3-fpm || fail 'PHP-FPM failed after applying the security configuration.'
 systemctl restart docker
 
 install -m 0644 /dev/null /etc/mysql/mariadb.conf.d/99-pterodactyl-bind.cnf

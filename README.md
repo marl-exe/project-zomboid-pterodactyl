@@ -51,19 +51,31 @@ performance guarantee.
 
 | Component | Pinned baseline |
 | --- | --- |
-| Pterodactyl Panel | `v1.15.1` |
-| Pterodactyl Wings | `v1.13.3` |
+| Pterodactyl Panel | `v1.15.2` |
+| Pterodactyl Wings | `v1.13.5` |
 | Project Zomboid egg | `pterodactyl/game-eggs` commit `c637a6d1e0449b167efeff81bb9a0177aa3df6c2` |
 | Runtime images | `ptero-eggs/steamcmd:debian` and `ptero-eggs/installers:debian`, pinned by manifest digest |
 | Project Zomboid Steam app | `380870`, normal stable branch |
-| PHP | Ubuntu 24.04 PHP 8.3 packages |
+| PHP | Ubuntu 24.04 PHP 8.3 packages, with the php2shell security fixes |
 | Container runtime | Docker CE from Docker's official Ubuntu repository |
 
-The pinned Panel and Wings releases were published on 2026-08-14. Their
-GitHub release asset SHA-256 digests and the reviewed egg digest are embedded
-in the installer and verified before execution continues. The egg's runtime
-and installation container tags are rewritten to reviewed GHCR manifest
-digests before import.
+The pinned Panel and Wings releases were published on 2026-10-21 and
+2026-11-11, respectively. Their GitHub release asset SHA-256 digests and the
+reviewed egg digest are embedded in the installer and verified before execution
+continues. The egg's runtime and installation container tags are rewritten to
+reviewed GHCR manifest digests before import.
+
+Ubuntu 24.04 must provide PHP 8.3 packages containing the fixes for
+CVE-2026-109618 and CVE-2026-109619 (at least
+`8.3.6-0ubuntu0.24.04.13` for Ubuntu's packages). The installer fails if the
+installed PHP CLI or FPM package is older. It also disables PHP session upload
+progress for the Panel's FPM process. Ubuntu backports these fixes, so the
+upstream PHP version number alone is not a reliable indication of patch status.
+
+Security references:
+
+- [Panel v1.15.2 release](https://github.com/pterodactyl/panel/releases/tag/v1.15.2)
+- [Ubuntu php2shell advisory](https://ubuntu.com/security/CVE-2026-109618)
 
 Upstream references:
 
@@ -174,6 +186,7 @@ The installer fails closed when it detects:
 - Docker-conflicting distribution packages;
 - an unknown SSH port;
 - mismatched Panel, Wings, or egg checksums;
+- PHP packages missing the Ubuntu 24.04 php2shell security fixes;
 - a failed service, game install, startup, backup, or health check.
 
 It does not remove conflicting packages, reinstall the OS, alter SSH
