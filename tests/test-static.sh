@@ -143,6 +143,10 @@ grep -Fq 'session.upload_progress.enabled = Off' "${installer}" \
     || fail 'The PHP-FPM session upload progress mitigation is missing.'
 grep -Fq '/etc/php/8.3/fpm/conf.d/99-pterodactyl-security.ini' "${installer}" \
     || fail 'The PHP-FPM security setting is not installed.'
+grep -Fq 'systemctl restart php8.3-fpm' "${installer}" \
+    || fail 'PHP-FPM is not restarted to activate the security setting.'
+grep -Fq 'systemctl is-active --quiet php8.3-fpm' "${installer}" \
+    || fail 'The restarted PHP-FPM service is not checked.'
 dpkg --compare-versions '8.3.6-0ubuntu0.24.04.12' lt '8.3.6-0ubuntu0.24.04.13' \
     || fail 'The Ubuntu PHP security floor comparison is invalid.'
 dpkg --compare-versions '8.3.6-0ubuntu0.24.04.13' ge '8.3.6-0ubuntu0.24.04.13' \

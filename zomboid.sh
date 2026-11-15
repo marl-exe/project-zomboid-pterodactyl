@@ -555,6 +555,10 @@ EOF
 
 systemctl daemon-reload
 systemctl enable --now docker mariadb redis-server php8.3-fpm cron
+# APT may already have started PHP-FPM before the security ini was installed.
+# Enabling an active unit does not reload its PHP configuration.
+systemctl restart php8.3-fpm
+systemctl is-active --quiet php8.3-fpm || fail 'PHP-FPM failed after applying the security configuration.'
 systemctl restart docker
 
 install -m 0644 /dev/null /etc/mysql/mariadb.conf.d/99-pterodactyl-bind.cnf
